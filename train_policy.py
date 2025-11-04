@@ -98,7 +98,8 @@ def evaluate(
                 
             
             base_env= env.unwrapped
-            base_env.index_seed_steps = count
+            # Fix typo: use `index_seed_step` (singular) which is read by wrappers
+            base_env.index_seed_step = count
             count+=1
             observation, reward, done, info = env.step(action, exp_dir=exp_dir, rank=0, flag="valid")
             episode_reward += reward
@@ -184,10 +185,10 @@ def main(_):
   
   if FLAGS.wandb:
     if FLAGS.resume:
-        wandb_id = "cfhl6lei"
-        wandb.init(project="MultipleSeeds6Subtask", group="INEST-IRL_KNN_42", name="INEST-IRL_KNN_42", id=wandb_id, mode="offline", resume="must")
+        wandb_id = "b51amnhc"
+        wandb.init(project="MultipleSeeds6Subtask", group="INEST-IRL_ALLO_42", name="INEST-IRL_ALLO_42", id=wandb_id, mode="offline", resume="must")
     else:
-        wandb.init(project="MultipleSeeds6Subtask", group="INEST-IRL_KNN_24", name="INEST-IRL_KNN_24", mode="offline")
+        wandb.init(project="MultipleSeeds6Subtask", group="INEST-IRL_KNN_12", name="INEST-IRL_KNN_12", mode="offline")
     wandb.config.update(FLAGS, allow_val_change=True)
     wandb.run.log_code(".")
     wandb.config.update(config.to_dict(), allow_val_change=True)
@@ -432,7 +433,7 @@ def main(_):
             should_record_video = False
             
         observation, done = env.reset(), False
-        if "holdr" in config.reward_wrapper.type:
+        if "inest" in config.reward_wrapper.type:
           # print("Resetting buffer and environment state.")
           # buffer.reset_state()
           env.reset_state()

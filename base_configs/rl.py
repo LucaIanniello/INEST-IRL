@@ -50,13 +50,13 @@ def get_config():
   config.frame_stack = 3
 
   config.reward_wrapper = ml_collections.ConfigDict()
-  config.reward_wrapper.pretrained_path = "/leonardo/home/userexternal/lianniel/Egocentric_Pretrain/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_EGO_6Subtask"
-  # config.reward_wrapper.pretrained_path = "/leonardo/home/userexternal/lianniel/Allocentric_Pretrain/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_ALLO_6Subtasks"
+  # config.reward_wrapper.pretrained_path = "/leonardo/home/userexternal/lianniel/Egocentric_Pretrain/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_EGO_6Subtask"
+  config.reward_wrapper.pretrained_path = "/leonardo/home/userexternal/lianniel/Allocentric_Pretrain/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_ALLO_6Subtasks"
   # config.reward_wrapper.pretrained_path = "/leonardo/home/userexternal/lianniel/Egocentric_Pretrain/dataset=xmagical_mode=same_algo=holdr_embodiment=gripper_EGO"
   
   # This must be changed to use the desired learned reward.
   # Accepted values: 'distance_to_goal', 'goal_classifier', 'inest', 'inest_knn', 'state_intrinsic', 'reds'
-  config.reward_wrapper.type = "inest"
+  config.reward_wrapper.type = ""
 
   # Vector environment parameters for DDP
   config.num_envs_per_process = 3  # Number of parallel environments per DDP process

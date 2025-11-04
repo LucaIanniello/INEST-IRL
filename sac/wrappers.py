@@ -340,8 +340,8 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         self,
         subtask_means,
         distance_scale,
-        normalize_intrinsic = False,
-        scheduled_intrinsic_weight = False,
+        normalize_intrinsic,
+        scheduled_intrinsic_weight,
         index_seed_step = 0,
         subtask_threshold=5.0,
         subtask_cost=2.0,
@@ -622,6 +622,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
             'novelty_reward': float(novelty_reward)
         })
         
+        # print(f"Normalize intrinsic:{self.normalize_intrinsic}, Scheduled intrinsic weight:{self.scheduled_intrinsic_weight}")
         if self.normalize_intrinsic:
             print("WRAPPER: Normalizing intrinsic reward with z-score.")
             # Normalization with z-score considering the mean and the std of all the distances
@@ -817,6 +818,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
             
             
     def _get_reward_from_image(self, image, flag):
+        # print("WRAPPER: Computing INEST IRL reward from image.")
         image_tensor = self._to_tensor(image)
         emb = self._model.infer(image_tensor).numpy().embs  # Shape: (emb_dim,)
         # emb = self._model.module.infer(image_tensor).numpy().embs
@@ -839,18 +841,19 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         
             # print(f"WRAPPER- Step:{self.index_seed_step}, reward: {reward}, subtask: {self._subtask}. distance: {dist}")
             
-        # intrinsic_bonus = self._compute_intrinsic_reward(emb)
-        # if self.scheduled_intrinsic_weight:
-        #     # Exponential scheduler starting from 0.5 and decreasing with time
-        #     # Adjusted for 8M steps: at 1M steps -> ~0.31, at 4M steps -> ~0.18, at 8M steps -> ~0.11
-        #     print("Index_seed_step:", self.index_seed_step)
-        #     intrinsic_weight = max(0.1, 0.5 * np.exp(-0.0000001 * self.index_seed_step))
-        #     reward += intrinsic_weight * self._compute_intrinsic_reward(emb)
-        # else:
-        #     if self.subtask_switch_step > 0 and (self.index_seed_step - self.subtask_switch_step) < 7:
-        #         reward += (self.increase_intrinsic_scale_after_subtask + self._intrinsic_scale) * intrinsic_bonus
-        #     else:
-        #         reward += self._intrinsic_scale * intrinsic_bonus
+        intrinsic_bonus = self._compute_intrinsic_reward(emb)
+        if self.scheduled_intrinsic_weight:
+            # Exponential scheduler starting from 0.5 and decreasing with time
+            # Adjusted for 8M steps: at 1M steps -> ~0.31, at 4M steps -> ~0.18, at 8M steps -> ~0.11
+            # print("Index_seed_step:", self.index_seed_step)
+            intrinsic_weight = max(0.1, 0.5 * np.exp(-0.0000001 * self.index_seed_step))
+            reward += intrinsic_weight * intrinsic_bonus
+        else:
+            # print("Using fixed intrinsic scale:", self._intrinsic_scale)
+            if self.subtask_switch_step > 0 and (self.index_seed_step - self.subtask_switch_step) < 7:
+                reward += (self.increase_intrinsic_scale_after_subtask + self._intrinsic_scale) * intrinsic_bonus
+            else:
+                reward += self._intrinsic_scale * intrinsic_bonus
         return reward
 
     def step(self, action, rank, exp_dir, flag):
@@ -1155,6 +1158,7 @@ class KNNINESTIRLLearnedVisualReward(LearnedVisualReward):
         })
         
     def _compute_intrinsic_reward(self, emb):
+        # print("KNN INTRINSIC REWARD COMPUTATION")
         current_subtask = self._subtask
         memory = self._embedding_memory_per_subtask[current_subtask]
 
@@ -1373,6 +1377,7 @@ class KNNINESTIRLLearnedVisualReward(LearnedVisualReward):
             
             
     def _get_reward_from_image(self, image, flag):
+        # print("KNN WRAPPER", flush=True)
         image_tensor = self._to_tensor(image)
         emb = self._model.infer(image_tensor).numpy().embs  # Shape: (emb_dim,)
         # emb = self._model.module.infer(image_tensor).numpy().embs
@@ -1405,6 +1410,7 @@ class KNNINESTIRLLearnedVisualReward(LearnedVisualReward):
 
 
     def step(self, action, rank, exp_dir, flag):
+        # print("KNN WRAPPER STEP")
         obs, env_reward, done, info = self.env.step(action)
         info["env_reward"] = env_reward
         pixels = self._render_obs()
