@@ -48,6 +48,8 @@ def main(_):
     reward_type = "inest_knn"
   elif FLAGS.algo == "state_intrinsic":
     reward_type = "state_intrinsic"
+  elif FLAGS.algo == "random_encoder":
+    reward_type = "random_encoder"
   elif FLAGS.algo == "reds":
     reward_type = "reds"
   elif FLAGS.algo == "goal_classifier":
@@ -75,7 +77,7 @@ def main(_):
   
   # To use a existing experiment name, uncomment below and comment above.
   # It must be followed by the RESUME entry in the subprocess call.
-  experiment_name = "env_name=SweepToTop-Gripper-State-Allo-TestLayout-v0_reward=learned_reward_type=holdr_mode=same_algo=xirl_uid=b3dbafd4-f457-47a4-b91c-8f464dc0fbc3"
+  experiment_name = "env_name=SweepToTop-Gripper-State-Allo-TestLayout-v0_reward=learned_reward_type=inest_mode=same_algo=xirl_uid=b4221136-b3ff-4d6e-978e-33421ed0de66"
   logging.info("Experiment name: %s", experiment_name)
 
   # Execute each seed and wait for completion
