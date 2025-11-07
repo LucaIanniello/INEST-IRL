@@ -276,6 +276,10 @@ class GridCoverageClass():
         self._unique_states_visited = 0
         self._total_steps = 0
         
+        # Subtask tracking (set by wrappers)
+        self._subtask = 0
+        self._num_subtasks = 6
+        
         # Similarity-preserving grid mapping
         self._use_similarity_grid = True
         self._grid_dims = 2  # Use 2D grid for better visualization
@@ -930,7 +934,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
                 reward += self._intrinsic_scale * intrinsic_bonus
         return reward
 
-    def step(self, action, rank, exp_dir, flag):
+    def step(self, action, rank=0, exp_dir=None, flag="train"):
         obs, env_reward, done, info = self.env.step(action)
         info["env_reward"] = env_reward
         pixels = self._render_obs()
@@ -1130,7 +1134,7 @@ class KNNINESTIRLLearnedVisualReward(LearnedVisualReward):
       
 
 
-    def step(self, action, rank, exp_dir, flag):
+    def step(self, action, rank=0, exp_dir=None, flag="train"):
         # print("KNN WRAPPER STEP")
         obs, env_reward, done, info = self.env.step(action)
         info["env_reward"] = env_reward
@@ -1699,7 +1703,7 @@ class STATEINTRINSICLearnedVisualReward(LearnedVisualReward):
       
 
 
-    def step(self, action, rank, exp_dir, flag):
+    def step(self, action, rank=0, exp_dir=None, flag="train"):
         obs, env_reward, done, info = self.env.step(action)
         info["env_reward"] = env_reward
         pixels = self._render_obs()
@@ -1723,11 +1727,11 @@ class STATEINTRINSICLearnedVisualReward(LearnedVisualReward):
         else:
             final_reward = task_reward
         
-        if self.index_seed_step % 20000 == 0 and flag == "train":
-            coverage_stats = self.get_coverage_stats(subtask=self._subtask, num_subtasks=self._num_subtasks)
+        if self.index_seed_step % 20000 == 0 and flag == "train" and exp_dir is not None:
+            coverage_stats = self.get_coverage_stats()
             info['coverage_stats'] = coverage_stats
             if rank == 0:
-                self.save_coverage_data(filename='coverage_analysis.json')
+                self.save_coverage_data('coverage_analysis.json')
 
                 if self._coverage_grid is not None and self._coverage_grid.ndim == 2:
                     try:
@@ -1957,7 +1961,7 @@ class RandomEncoderIntrinsicReward(LearnedVisualReward):
                 reward += self._intrinsic_scale * intrinsic_bonus
         return reward
 
-    def step(self, action, rank, exp_dir, flag):
+    def step(self, action, rank=0, exp_dir=None, flag="train"):
         obs, env_reward, done, info = self.env.step(action)
         random_encoder = _RandomEncoder(obs.shape)
         info["env_reward"] = env_reward

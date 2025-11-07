@@ -75,43 +75,45 @@ def evaluate(
     
   for i in range(num_episodes):
     observation, done = env.reset(), False
-    if "holdr" in FLAGS.experiment_name:
-      # Reset the buffer and environment state for holdr.
+    if "inest" in FLAGS.experiment_name:
+      # Reset the buffer and environment state for inest.
       env.reset_state()
     episode_reward = 0
     count=0
     while not done:
       # Capture frame for last episode only
-            if i == num_episodes - 1:
-                frame = env.render(mode="rgb_array")
-                last_episode_frames.append(frame)
-            
-            action = policy.act(observation, sample=False)
-            
-            if i == num_episodes - 1:
-                if isinstance(action, torch.Tensor):
-                    action_np = action.cpu().numpy()
-                else:
-                    action_np = action  # Already numpy array
-                    
-                last_episode_actions.append(action_np.tolist())
-                
-            
-            base_env= env.unwrapped
-            # Fix typo: use `index_seed_step` (singular) which is read by wrappers
-            base_env.index_seed_step = count
-            count+=1
-            observation, reward, done, info = env.step(action, exp_dir=exp_dir, rank=0, flag="valid")
-            episode_reward += reward
-            
-            # Capture reward for last episode only
-            if i == num_episodes - 1:
-                last_episode_rewards.append(reward)
+      if i == num_episodes - 1:
+          frame = env.render(mode="rgb_array")
+          last_episode_frames.append(frame)
+      
+      action = policy.act(observation, sample=False)
+      
+      if i == num_episodes - 1:
+          if isinstance(action, torch.Tensor):
+              action_np = action.cpu().numpy()
+          else:
+              action_np = action  # Already numpy array
+              
+          last_episode_actions.append(action_np.tolist())
+          
+      
+      base_env = env.unwrapped
+      # Fix typo: use `index_seed_step` (singular) which is read by wrappers
+      base_env.index_seed_steps = count
+      count+=1
+      observation, reward, done, info = env.step(action, exp_dir=exp_dir, rank=0, flag="valid")
+      episode_reward += reward
+      
+      # Capture reward for last episode only
+      if i == num_episodes - 1:
+          last_episode_rewards.append(reward)
+    
+    # Process episode info after episode is done
     for k, v in info["episode"].items():
       stats[k].append(v)
     if "eval_score" in info:
       stats["eval_score"].append(info["eval_score"])
-      print(f"Episode {i} eval score: {stats['eval_score']}")
+      print(f"Episode {i} eval score: {stats['eval_score']}", flush=True)
     episode_rewards.append(episode_reward)
     
     actions_file = os.path.join(exp_dir, "last_evaluation_actions.json")
@@ -124,7 +126,7 @@ def evaluate(
     with open(actions_file, 'w') as f:
         json.dump(action_data, f, indent=2)
     
-    logging.info(f"Saved last evaluation actions to {actions_file}")
+    # logging.info(f"Saved last evaluation actions to {actions_file}")
     
     # Log video and reward plot to wandb
     if last_episode_frames and FLAGS.wandb:
@@ -150,21 +152,24 @@ def evaluate(
             plt.close()
         except ImportError:
             pass  # matplotlib not available
+        
   for k, v in stats.items():
     stats[k] = np.mean(v)
     
+  print(f"Mean Evaluation Score over {num_episodes} episodes: {stats['eval_score']}", flush=True)
+    
   if FLAGS.wandb:
-        wandb.log({
-            "eval/mean_episode_reward": np.mean(episode_rewards),
-            "eval/episode_rewards": episode_rewards,
-            "eval/step": i,
-        })
-        if "eval_score" in stats:
-            wandb.log({
-                "eval/mean_eval_score": stats["eval_score"],
-                "eval/eval_scores": stats.get("eval_score", []),
-                "eval/step": i,
-            })
+    wandb.log({
+      "eval/mean_episode_reward": np.mean(episode_rewards),
+      "eval/episode_rewards": episode_rewards,
+      "eval/step": i,
+    })
+    if "eval_score" in stats:
+      wandb.log({
+        "eval/mean_eval_score": stats["eval_score"],
+        "eval/eval_scores": stats.get("eval_score", []),
+        "eval/step": i,
+      })
   return stats, episode_rewards
 
 
@@ -472,26 +477,26 @@ def main(_):
             }, step=i)
           logger.flush()
 
-      if (i + 1) % config.eval_frequency == 0:
-        eval_stats, episode_rewards = evaluate(policy, eval_env, config.num_eval_episodes)
-        for k, v in eval_stats.items():
-          logger.log_scalar(
-              v,
-              info["total"]["timesteps"],
-              f"average_{k}s",
-              "evaluation",
-          )
-          if FLAGS.wandb:
-            wandb.log({
-                f"eval/{k}": v,
-                "train/step": i,
-            }, step=i)
-          if FLAGS.wandb:
-            wandb.log({
-                "eval/episode_reward": episode_rewards,
-                "train/step": i,
-            }, step=i)
-        logger.flush()
+      # if (i + 1) % config.eval_frequency == 0:
+      eval_stats, episode_rewards = evaluate(policy, eval_env, config.num_eval_episodes)
+      for k, v in eval_stats.items():
+        logger.log_scalar(
+            v,
+            info["total"]["timesteps"],
+            f"average_{k}s",
+            "evaluation",
+        )
+        if FLAGS.wandb:
+          wandb.log({
+              f"eval/{k}": v,
+              "train/step": i,
+          }, step=i)
+        if FLAGS.wandb:
+          wandb.log({
+              "eval/episode_reward": episode_rewards,
+              "train/step": i,
+          }, step=i)
+      logger.flush()
 
       if (i + 1) % config.checkpoint_frequency == 0:
         checkpoint_manager.save(i)
