@@ -425,7 +425,7 @@ class GridCoverageClass():
             
         return coord_tuple
     
-    def _update_coverage_metrics(self, emb):
+    def _update_coverage_metrics(self, emb, subtask):
         """Update various coverage metrics"""
         self._total_steps += 1
         
@@ -453,7 +453,7 @@ class GridCoverageClass():
             self._visited_states.add(state_hash)
             was_new_state = True
             
-        self._visited_states_per_subtask[self._subtask].add(state_hash)
+        self._visited_states_per_subtask[subtask].add(state_hash)
         
         # Calculate current coverage metrics
         grid_coverage = np.sum(self._coverage_grid > 0) / self._coverage_grid.size
@@ -476,14 +476,14 @@ class GridCoverageClass():
         # Store metrics
         self._coverage_history.append({
             'step': self._total_steps,
-            'subtask': self._subtask,
+            'subtask': subtask,
             'grid_coverage': grid_coverage,
             'unique_states': len(self._visited_states),
             'unique_ratio': unique_state_ratio,
             'total_grid_cells': np.sum(self._coverage_grid > 0)
         })
     
-    def get_coverage_stats(self):
+    def get_coverage_stats(self,subtask, num_subtasks):
         """Get comprehensive coverage statistics"""
         if not self._coverage_history:
             return {}
@@ -495,7 +495,7 @@ class GridCoverageClass():
             'unique_states_visited': len(self._visited_states),
             'grid_coverage_percentage': latest['grid_coverage'] * 100,
             'unique_state_ratio': latest['unique_ratio'],
-            'current_subtask': self._subtask,
+            'current_subtask': subtask,
             'average_novelty': np.mean([h['novelty_reward'] for h in self._novelty_history[-100:]]) if self._novelty_history else 0,
             'similarity_mapping_fitted': self._similarity_mapping_fitted,
             'using_similarity_grid': self._use_similarity_grid,
@@ -509,7 +509,7 @@ class GridCoverageClass():
         
         # Per-subtask statistics
         subtask_stats = {}
-        for s in range(self._num_subtasks + 1):
+        for s in range(num_subtasks + 1):
           subtask_stats[f'subtask_{s}_coverage'] = (
               [h['grid_coverage'] for h in self._coverage_history if h['subtask'] == s][-1] * 100
               if any(h['subtask'] == s for h in self._coverage_history) else 0
@@ -541,7 +541,7 @@ class GridCoverageClass():
             
         return viz_data
       
-    def save_coverage_data(self, filepath):
+    def save_coverage_data(self, filepath, subtask, num_subtasks):
         """Save coverage data for analysis"""
         import json
         import numpy as np
@@ -561,12 +561,9 @@ class GridCoverageClass():
         coverage_data = {
             'coverage_history': _clean_dict_list(self._coverage_history),
             'novelty_history': _clean_dict_list(self._novelty_history),
-            'stats': {k: _to_serializable(v) for k, v in self.get_coverage_stats().items()},
+            'stats': {k: _to_serializable(v) for k, v in self.get_coverage_stats(subtask, num_subtasks).items()},
             'visualization_data': {k: _to_serializable(v) for k, v in (self.get_coverage_visualization_data() or {}).items()},
             'parameters': {
-                'k_nearest': int(self._k_nearest),
-                'intrinsic_scale': float(self._intrinsic_scale),
-                'max_memory': int(self._max_memory),
                 'coverage_grid_size': int(self._coverage_grid_size),
                 'use_similarity_grid': bool(self._use_similarity_grid),
                 'grid_dims': int(self._grid_dims) if hasattr(self, '_grid_dims') else 2,
@@ -584,11 +581,11 @@ class GridCoverageClass():
             np.save(grid_file, self._coverage_grid)
             print(f"WRAPPER: Saved coverage grid to {grid_file}")
             
-    def save_and_plot_coverage(self, exp_dir, index_seed_step, rank, filename='coverage_analysis.json'):
+    def save_and_plot_coverage(self, exp_dir, index_seed_step, rank, subtask, num_subtasks, filename='coverage_analysis.json'):
         """Save coverage data and plot grid visualization if possible."""
         import os
-        coverage_stats = self.get_coverage_stats()
-        self.save_coverage_data(filename=filename)
+        coverage_stats = self.get_coverage_stats(subtask=subtask, num_subtasks=num_subtasks)
+        self.save_coverage_data(filepath=filename, subtask=subtask, num_subtasks=num_subtasks)
         if self._coverage_grid is not None and self._coverage_grid.ndim == 2 and rank == 0:
             try:
                 import matplotlib.pyplot as plt
@@ -901,7 +898,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         # emb = self._model.module.infer(image_tensor).numpy().embs
 
         if flag == "train":
-            self._update_coverage_metrics(emb)
+            self.grid_coverage._update_coverage_metrics(emb, self._subtask)
 
         if self._subtask >= self._num_subtasks:
             reward = self._subtask_cost * self._subtask
@@ -941,7 +938,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         
         if self.index_seed_step % 20000 == 0 and flag == "train":
 
-            self.grid_coverage.save_and_plot_coverage(exp_dir, self.index_seed_step, rank )
+            self.grid_coverage.save_and_plot_coverage(exp_dir, self.index_seed_step, rank, self._subtask, self._num_subtasks)
             
         return obs, learned_reward, done, info
 
@@ -1107,7 +1104,7 @@ class KNNINESTIRLLearnedVisualReward(LearnedVisualReward):
         # emb = self._model.module.infer(image_tensor).numpy().embs
 
         if flag == "train":
-            self._update_coverage_metrics(emb)
+            self.grid_coverage._update_coverage_metrics(emb, self._subtask)
 
         if self._subtask >= self._num_subtasks:
             reward = self._subtask_cost * self._subtask
@@ -1141,7 +1138,7 @@ class KNNINESTIRLLearnedVisualReward(LearnedVisualReward):
         learned_reward = self._get_reward_from_image(pixels, flag)
                 
         if self.index_seed_step % 20000 == 0 and flag == "train":
-            self.grid_coverage.save_and_plot_coverage(exp_dir, self.index_seed_step, rank )
+            self.grid_coverage.save_and_plot_coverage(exp_dir, self.index_seed_step, rank, self._subtask, self._num_subtasks)
         
         return obs, learned_reward, done, info
     
@@ -1681,7 +1678,7 @@ class STATEINTRINSICLearnedVisualReward(LearnedVisualReward):
         # emb = self._model.module.infer(image_tensor).numpy().embs
 
         # if flag == "train":
-        #     self._update_coverage_metrics(emb)
+        #     self.grid_coverage._update_coverage_metrics(emb)
 
         if self._subtask >= self._num_subtasks:
             reward = self._subtask_cost * self._subtask
@@ -1712,7 +1709,7 @@ class STATEINTRINSICLearnedVisualReward(LearnedVisualReward):
         
         # Calculate intrinsic reward based on state/observation
         if flag == "train" and hasattr(self, '_state_memory_per_subtask'):
-            self._update_coverage_metrics(obs)
+            self.grid_coverage._update_coverage_metrics(obs)
             intrinsic_reward = self._compute_intrinsic_reward_from_state(obs)
             if self.subtask_switch_step > 0 and (self.index_seed_step - self.subtask_switch_step) < 7:
                 intrinsic_scale = self.increase_intrinsic_scale_after_subtask + self._intrinsic_scale
@@ -1727,10 +1724,10 @@ class STATEINTRINSICLearnedVisualReward(LearnedVisualReward):
             final_reward = task_reward
         
         if self.index_seed_step % 20000 == 0 and flag == "train":
-            coverage_stats = self.get_coverage_stats()
+            coverage_stats = self.get_coverage_stats(subtask=self._subtask, num_subtasks=self._num_subtasks)
             info['coverage_stats'] = coverage_stats
             if rank == 0:
-                self.save_coverage_data('coverage_analysis.json')
+                self.save_coverage_data(filename='coverage_analysis.json')
 
                 if self._coverage_grid is not None and self._coverage_grid.ndim == 2:
                     try:
@@ -1928,7 +1925,7 @@ class RandomEncoderIntrinsicReward(LearnedVisualReward):
         emb = random_encoder(image_tensor).numpy().embs  # Shape: (emb_dim,)
 
         if flag == "train":
-            self._update_coverage_metrics(emb)
+            self.grid_coverage._update_coverage_metrics(emb, self._subtask)
 
         if self._subtask >= self._num_subtasks:
             reward = self._subtask_cost * self._subtask
@@ -1969,7 +1966,7 @@ class RandomEncoderIntrinsicReward(LearnedVisualReward):
         
                 
         if self.index_seed_step % 20000 == 0 and flag == "train":
-            self.grid_coverage.save_and_plot_coverage(exp_dir, self.index_seed_step, rank )
+            self.grid_coverage.save_and_plot_coverage(exp_dir, self.index_seed_step, rank, self._subtask, self._num_subtasks)
 
         return obs, learned_reward, done, info
 

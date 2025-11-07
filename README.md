@@ -121,3 +121,8 @@ For the XMagical environment, the file 'SweepToTop.py' contains the code that mu
 In addition, the 'base_envs.py' file of the XMAGICAL library contains the code for environment settings and in this case the parameter view_mode should be set to allo or ego based on the type of viewpoint used. 
 
 For the pretraining phase, the type of algorithm used for the inest pretraining is the xirl model. 
+
+For the training phase, wrappers.py file contains the code for the reward computation and the coverage metrics update. Here, it is relevant to use the correct subtask thresholds. For the pretraining done with tcc loss + subtask subdivision with resnet 18 encoder, the thresholds are the following:
+- >= -0.03
+- >= -0.03
+- >= -0.06
