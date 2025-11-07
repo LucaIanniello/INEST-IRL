@@ -193,7 +193,7 @@ def main(_):
         wandb_id = "b51amnhc"
         wandb.init(project="MultipleSeeds6Subtask", group="INEST-IRL_ALLO_42", name="INEST-IRL_ALLO_42", id=wandb_id, mode="offline", resume="must")
     else:
-        wandb.init(project="MultipleSeeds6Subtask", group="INEST-IRL_KNN_12", name="INEST-IRL_KNN_12", mode="offline")
+        wandb.init(project="MultipleSeeds6Subtask", group="INEST-IRL_ALLO_42", name="INEST-IRL_ALLO_42", mode="offline")
     wandb.config.update(FLAGS, allow_val_change=True)
     wandb.run.log_code(".")
     wandb.config.update(config.to_dict(), allow_val_change=True)
@@ -477,26 +477,26 @@ def main(_):
             }, step=i)
           logger.flush()
 
-      # if (i + 1) % config.eval_frequency == 0:
-      eval_stats, episode_rewards = evaluate(policy, eval_env, config.num_eval_episodes)
-      for k, v in eval_stats.items():
-        logger.log_scalar(
-            v,
-            info["total"]["timesteps"],
-            f"average_{k}s",
-            "evaluation",
-        )
-        if FLAGS.wandb:
-          wandb.log({
-              f"eval/{k}": v,
-              "train/step": i,
-          }, step=i)
-        if FLAGS.wandb:
-          wandb.log({
-              "eval/episode_reward": episode_rewards,
-              "train/step": i,
-          }, step=i)
-      logger.flush()
+      if (i + 1) % config.eval_frequency == 0:
+        eval_stats, episode_rewards = evaluate(policy, eval_env, config.num_eval_episodes)
+        for k, v in eval_stats.items():
+          logger.log_scalar(
+              v,
+              info["total"]["timesteps"],
+              f"average_{k}s",
+              "evaluation",
+          )
+          if FLAGS.wandb:
+            wandb.log({
+                f"eval/{k}": v,
+                "train/step": i,
+            }, step=i)
+          if FLAGS.wandb:
+            wandb.log({
+                "eval/episode_reward": episode_rewards,
+                "train/step": i,
+            }, step=i)
+        logger.flush()
 
       if (i + 1) % config.checkpoint_frequency == 0:
         checkpoint_manager.save(i)
